@@ -308,13 +308,13 @@ void Note::add(apiv1::EngravingItem* wrapped)
 ///   \since MuseScore 5.0
 //---------------------------------------------------------
 
-apiv1::Tie* Note::addTie(apiv1::Note* endNote)
+Tie* Note::addTie(apiv1::Note* endNote)
 {
     if (!addTieInternal(note(), nullptr, endNote ? endNote->note() : nullptr)) {
         LOGW("Note::addTie: Cannot add tie. No end note was found.");
         return nullptr;
     }
-    return wrap<apiv1::Tie>(note()->tieFor());
+    return wrap<Tie>(note()->tieFor());
 }
 
 //---------------------------------------------------------
