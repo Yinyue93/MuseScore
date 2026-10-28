@@ -33,11 +33,14 @@
 #include "engraving/dom/slur.h"
 #include "engraving/dom/spacer.h"
 #include "engraving/dom/system.h"
+#include "engraving/dom/tie.h"
 #include "engraving/dom/tremolotwochord.h"
 #include "engraving/dom/trill.h"
+#include "engraving/dom/utils.h"
 
 #include "engraving/editing/editnote.h"
 #include "engraving/editing/editsystemlocks.h"
+#include "engraving/editing/edittie.h"
 #include "engraving/editing/transaction/transaction.h"
 
 #include "engraving/style/style.h"
@@ -282,11 +285,59 @@ void Note::add(apiv1::EngravingItem* wrapped)
             LOGW("Note::add: Cannot add this element. The element is already part of the score.");
             return;              // Don't allow operation.
         }
+        if (s->isTie()) {
+            // A tie needs an end note; adding one without it crashes layout.
+            mu::engraving::Tie* tie = toTie(s);
+            if (!addTieInternal(note(), tie, tie->endNote())) {
+                LOGW("Note::add: Cannot add tie. No end note was found.");
+                return;
+            }
+            wrapped->setOwnership(Ownership::SCORE);
+            return;
+        }
+
         // Score now owns the object.
         wrapped->setOwnership(Ownership::SCORE);
 
         addInternal(note(), s);
     }
+}
+
+//---------------------------------------------------------
+//   Note::addTie
+///   \since MuseScore 5.0
+//---------------------------------------------------------
+
+apiv1::Tie* Note::addTie(apiv1::Note* endNote)
+{
+    if (!addTieInternal(note(), nullptr, endNote ? endNote->note() : nullptr)) {
+        LOGW("Note::addTie: Cannot add tie. No end note was found.");
+        return nullptr;
+    }
+    return wrap<apiv1::Tie>(note()->tieFor());
+}
+
+//---------------------------------------------------------
+//   Note::addTieInternal
+///   Ties note to endNote, or to the next note of the same
+///   pitch if endNote is null. Returns false if there is
+///   no valid end note.
+//---------------------------------------------------------
+
+bool Note::addTieInternal(mu::engraving::Note* note, mu::engraving::Tie* tie, mu::engraving::Note* endNote)
+{
+    if (!endNote) {
+        endNote = mu::engraving::searchTieNote(note);
+    }
+    if (!endNote || endNote == note || endNote->score() != note->score()) {
+        return false;
+    }
+    if (endNote->chord()->segment()->tick() <= note->chord()->segment()->tick()
+        && !note->chord()->isGraceBefore()) {
+        return false;
+    }
+
+    return mu::engraving::EditTie::addTie(note, endNote, tie) != nullptr;
 }
 
 //---------------------------------------------------------
@@ -451,6 +502,31 @@ void Chord::remove(apiv1::EngravingItem* wrapped)
         LOGW("PluginAPI::Chord::remove: Removal of final note is not allowed.");
     } else {
         chord()->score()->deleteItem(s);     // Create undo op and remove the element.
+    }
+}
+
+//---------------------------------------------------------
+//   Spacer::setSpacerType
+//---------------------------------------------------------
+
+void Spacer::setSpacerType(int type)
+{
+    if (ownership() == Ownership::SCORE) {
+        // The measure keeps up and down spacers in separate slots,
+        // so the type of a spacer in the score cannot change.
+        LOGW("Spacer::setSpacerType: Cannot change the type of a spacer that is already in the score.");
+        return;
+    }
+
+    switch (mu::engraving::SpacerType(type)) {
+    case mu::engraving::SpacerType::UP:
+    case mu::engraving::SpacerType::DOWN:
+    case mu::engraving::SpacerType::FIXED:
+        spacer()->setSpacerType(mu::engraving::SpacerType(type));
+        break;
+    default:
+        LOGW("Spacer::setSpacerType: Invalid spacer type %d", type);
+        break;
     }
 }
 
@@ -869,6 +945,7 @@ EngravingItem* mu::engraving::apiv1::wrap(mu::engraving::EngravingItem* e, Owner
     if (e->is##type()) { return wrap<type>(to##type(e), own); }
 
     API_WRAP(Tie)
+    API_WRAP(Spacer)
     API_WRAP(Ornament)
     API_WRAP(Note)
     API_WRAP(Chord)

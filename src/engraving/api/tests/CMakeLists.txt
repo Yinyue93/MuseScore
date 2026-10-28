@@ -27,6 +27,7 @@ set(MODULE_TEST_SRC
     ${CMAKE_CURRENT_LIST_DIR}/environment.cpp
     ${CMAKE_CURRENT_LIST_DIR}/util_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/cursor_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/elements_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/score_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/spanner_tests.cpp
 )

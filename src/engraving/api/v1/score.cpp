@@ -184,6 +184,29 @@ void Score::replaceInstrument(apiv1::Part* part, const QString& instrumentId)
     mu::engraving::EditPart::replacePartInstrument(score(), part->part(), newInstrument);
 }
 
+void Score::replaceInstrumentAtTick(apiv1::Part* part, apiv1::Fraction* tick, const QString& instrumentId)
+{
+    if (!part) {
+        LOGW("replaceInstrumentAtTick: part is null");
+        return;
+    }
+    if (!tick) {
+        LOGW("replaceInstrumentAtTick: tick is null");
+        return;
+    }
+
+    const InstrumentTemplate* t = searchTemplate(instrumentId);
+    if (!t) {
+        LOGW("replaceInstrumentAtTick: <%s> not found", qPrintable(instrumentId));
+        return;
+    }
+
+    mu::engraving::Instrument newInstrument = mu::engraving::Instrument::fromTemplate(t);
+    if (!mu::engraving::EditPart::replaceInstrumentAtTick(score(), part->part(), tick->fraction(), newInstrument)) {
+        LOGW("replaceInstrumentAtTick: no instrument change found at tick %s", qPrintable(tick->fraction().toString()));
+    }
+}
+
 void Score::setPartVisible(apiv1::Part* part, bool visible)
 {
     if (!part) {

@@ -41,6 +41,7 @@
 #include "engraving/dom/ornament.h"
 #include "engraving/dom/page.h"
 #include "engraving/dom/segment.h"
+#include "engraving/dom/spacer.h"
 #include "engraving/dom/spanner.h"
 #include "engraving/dom/staff.h"
 #include "engraving/dom/stem.h"
@@ -72,6 +73,7 @@ class Part;
 class Spanner;
 class Staff;
 class System;
+class Spacer;
 class Tie;
 class Tuplet;
 class Measure;
@@ -1514,6 +1516,16 @@ public:
     /// Remove a note's element.
     /// \since MuseScore 3.3.3
     Q_INVOKABLE void remove(apiv1::EngravingItem* wrapped);
+    /// Ties this note to another note, replacing any existing tie from this note.
+    /// \param endNote note to tie to. If omitted, the next note
+    /// with the same pitch in the same voice is used.
+    /// \returns the new tie, or null if no end note was found.
+    /// \since MuseScore 5.0
+    Q_INVOKABLE apiv1::Tie* addTie(apiv1::Note* endNote = nullptr);
+
+    /// \cond MS_INTERNAL
+    static bool addTieInternal(mu::engraving::Note* note, mu::engraving::Tie* tie, mu::engraving::Note* endNote);
+    /// \endcond
 };
 
 //---------------------------------------------------------
@@ -2638,6 +2650,34 @@ public:
     Note* startNote() const { return wrap<Note>(tie()->startNote()); }
     Note* endNote() const { return wrap<Note>(tie()->endNote()); }
     bool isInside() const { return tie()->isInside(); }
+
+    /// \endcond
+};
+
+//---------------------------------------------------------
+//   Spacer
+///  Provides access to internal mu::engraving::Spacer objects.
+///  \since MuseScore 5.0
+//---------------------------------------------------------
+
+class Spacer : public EngravingItem
+{
+    Q_OBJECT
+    /// Type of the spacer, one of PluginAPI::PluginAPI::SpacerType values.
+    /// Can only be set before the spacer is added to a score.
+    Q_PROPERTY(int spacerType READ spacerType WRITE setSpacerType)
+
+    /// \cond MS_INTERNAL
+
+public:
+    Spacer(mu::engraving::Spacer* spacer, Ownership own = Ownership::PLUGIN)
+        : EngravingItem(spacer, own) {}
+
+    mu::engraving::Spacer* spacer() { return toSpacer(e); }
+    const mu::engraving::Spacer* spacer() const { return toSpacer(e); }
+
+    int spacerType() const { return int(spacer()->spacerType()); }
+    void setSpacerType(int type);
 
     /// \endcond
 };

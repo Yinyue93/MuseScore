@@ -214,6 +214,26 @@ void ScoreElement::set(mu::engraving::Pid pid, const QVariant& val)
 
         newValue = Align { alignHFromApiValue(apiValue), alignVFromApiValue(apiValue) };
     } break;
+    case P_TYPE::INT_VEC: {
+        // JS arrays arrive as QJSValue or QVariantList, which QVariant
+        // does not convert to QList<int>, so convert them element by element.
+        const QVariant v = val.canConvert<QJSValue>() ? val.value<QJSValue>().toVariant() : val;
+        std::vector<int> vec;
+        if (v.typeId() == QMetaType::QVariantList) {
+            for (const QVariant& item : v.toList()) {
+                vec.push_back(item.toInt());
+            }
+        } else if (v.typeId() == QMetaType::fromType<QList<int> >().id()) {
+            const QList<int> list = v.value<QList<int> >();
+            vec.assign(list.begin(), list.end());
+        } else if (v.canConvert<int>()) {
+            vec.push_back(v.toInt());
+        } else {
+            LOGW() << "trying to assign value of wrong type to integer list property";
+            return;
+        }
+        newValue = vec;
+    } break;
 
     default:
         newValue = PropertyValue::fromQVariant(val, propertyType(pid));
