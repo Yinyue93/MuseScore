@@ -1799,6 +1799,13 @@ public:
     /// Remove a chord's element.
     /// \since MuseScore 3.3
     Q_INVOKABLE void remove(apiv1::EngravingItem* wrapped);
+    /// Adds a grace note to this chord, the same way as the grace note commands.
+    /// \param pitch MIDI pitch of the grace note.
+    /// \param noteType type of grace note, one of PluginAPI::PluginAPI::NoteType
+    /// values except NORMAL and INVALID.
+    /// \returns the new grace note, or null if it could not be added.
+    /// \since MuseScore 5.0
+    Q_INVOKABLE apiv1::Note* addGraceNote(int pitch, int noteType);
 };
 
 //---------------------------------------------------------

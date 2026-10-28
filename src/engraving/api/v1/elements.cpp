@@ -506,6 +506,51 @@ void Chord::remove(apiv1::EngravingItem* wrapped)
 }
 
 //---------------------------------------------------------
+//   Chord::addGraceNote
+///   \since MuseScore 5.0
+//---------------------------------------------------------
+
+Note* Chord::addGraceNote(int pitch, int noteType)
+{
+    if (ownership() != Ownership::SCORE) {
+        LOGW("Chord::addGraceNote: The chord must be part of a score.");
+        return nullptr;
+    }
+    if (pitch < 0 || pitch > 127) {
+        LOGW("Chord::addGraceNote: Invalid pitch %d", pitch);
+        return nullptr;
+    }
+
+    // same durations as the grace note commands
+    const mu::engraving::NoteType type = mu::engraving::NoteType(noteType);
+    int len = 0;
+    switch (type) {
+    case mu::engraving::NoteType::GRACE4:
+        len = mu::engraving::Constants::DIVISION;
+        break;
+    case mu::engraving::NoteType::ACCIACCATURA:
+    case mu::engraving::NoteType::APPOGGIATURA:
+    case mu::engraving::NoteType::GRACE8_AFTER:
+        len = mu::engraving::Constants::DIVISION / 2;
+        break;
+    case mu::engraving::NoteType::GRACE16:
+    case mu::engraving::NoteType::GRACE16_AFTER:
+        len = mu::engraving::Constants::DIVISION / 4;
+        break;
+    case mu::engraving::NoteType::GRACE32:
+    case mu::engraving::NoteType::GRACE32_AFTER:
+        len = mu::engraving::Constants::DIVISION / 8;
+        break;
+    default:
+        LOGW("Chord::addGraceNote: Invalid grace note type %d", noteType);
+        return nullptr;
+    }
+
+    mu::engraving::Note* note = chord()->score()->setGraceNote(chord(), pitch, type, len);
+    return wrap<Note>(note, Ownership::SCORE);
+}
+
+//---------------------------------------------------------
 //   Spacer::setSpacerType
 //---------------------------------------------------------
 

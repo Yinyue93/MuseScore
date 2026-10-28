@@ -30,6 +30,7 @@
 #include "dom/part.h"
 #include "dom/score.h"
 #include "dom/masterscore.h"
+#include "dom/ottava.h"
 #include "dom/segment.h"
 #include "dom/staff.h"
 #include "dom/stafftype.h"
@@ -205,6 +206,140 @@ void Score::replaceInstrumentAtTick(apiv1::Part* part, apiv1::Fraction* tick, co
     if (!mu::engraving::EditPart::replaceInstrumentAtTick(score(), part->part(), tick->fraction(), newInstrument)) {
         LOGW("replaceInstrumentAtTick: no instrument change found at tick %s", qPrintable(tick->fraction().toString()));
     }
+}
+
+Measure* Score::insertMeasures(apiv1::MeasureBase* before, int count)
+{
+    if (count < 1) {
+        LOGW("insertMeasures: invalid count %d", count);
+        return nullptr;
+    }
+
+    mu::engraving::MeasureBase* beforeMeasure = before ? before->measureBase() : nullptr;
+    if (beforeMeasure && beforeMeasure->score() != score()) {
+        LOGW("insertMeasures: the measure is not part of this score");
+        return nullptr;
+    }
+
+    // same options as the "Insert measures" command
+    mu::engraving::Score::InsertMeasureOptions options;
+    options.createMeasureRests = false;
+    options.needDeselectAll = false;
+
+    mu::engraving::MeasureBase* first = nullptr;
+    for (int i = 0; i < count; ++i) {
+        mu::engraving::MeasureBase* mb = score()->insertMeasure(ElementType::MEASURE, beforeMeasure, options);
+        if (!mb) {
+            LOGW("insertMeasures: cannot insert a measure here");
+            break;
+        }
+        if (!first) {
+            first = mb;
+        }
+    }
+
+    return first && first->isMeasure() ? wrap<Measure>(toMeasure(first), Ownership::SCORE) : nullptr;
+}
+
+bool Score::deleteMeasures(apiv1::Measure* first, apiv1::Measure* last)
+{
+    if (!first || !last) {
+        LOGW("deleteMeasures: measure is null");
+        return false;
+    }
+
+    mu::engraving::Measure* startMeasure = first->measure();
+    mu::engraving::Measure* endMeasure = last->measure();
+    if (startMeasure->score() != score() || endMeasure->score() != score()) {
+        LOGW("deleteMeasures: the measures are not part of this score");
+        return false;
+    }
+    if (endMeasure->tick() < startMeasure->tick()) {
+        LOGW("deleteMeasures: the last measure comes before the first one");
+        return false;
+    }
+
+    // delete the time from the start of the first measure to the start of the
+    // measure after the last one, as the "Delete selected measures" command does
+    mu::engraving::Segment* startSegment = startMeasure->first(mu::engraving::SegmentType::ChordRest);
+    mu::engraving::Measure* afterLast = endMeasure->nextMeasure();
+    mu::engraving::Segment* endSegment = afterLast ? afterLast->first(mu::engraving::SegmentType::ChordRest) : nullptr;
+    if (!startSegment || (afterLast && !endSegment)) {
+        LOGW("deleteMeasures: cannot find the measure contents");
+        return false;
+    }
+
+    if (!score()->checkTimeDelete(startSegment, endSegment)) {
+        LOGW("deleteMeasures: deleting these measures would break up a measure repeat or a tuplet");
+        return false;
+    }
+
+    score()->doTimeDelete(startSegment, endSegment);
+    return true;
+}
+
+bool Score::addSpanner(apiv1::Spanner* wrapped, int staffIdx, apiv1::Fraction* startTick, apiv1::Fraction* endTick)
+{
+    if (!wrapped || !wrapped->spanner()) {
+        LOGW("addSpanner: spanner is null");
+        return false;
+    }
+    if (wrapped->ownership() == Ownership::SCORE) {
+        LOGW("addSpanner: the spanner is already part of a score");
+        return false;
+    }
+    if (!startTick || !endTick) {
+        LOGW("addSpanner: tick is null");
+        return false;
+    }
+
+    mu::engraving::Spanner* spanner = wrapped->spanner();
+    const mu::engraving::Spanner::Anchor anchor = spanner->anchor();
+    if (anchor != mu::engraving::Spanner::Anchor::SEGMENT && anchor != mu::engraving::Spanner::Anchor::MEASURE) {
+        LOGW("addSpanner: %s is attached to notes or chords and cannot be added this way", spanner->typeName());
+        return false;
+    }
+    if (staffIdx < 0 || static_cast<size_t>(staffIdx) >= score()->nstaves()) {
+        LOGW("addSpanner: invalid staff index %d", staffIdx);
+        return false;
+    }
+
+    mu::engraving::Fraction tick1 = startTick->fraction();
+    mu::engraving::Fraction tick2 = endTick->fraction();
+    if (!tick1.isValid() || !tick2.isValid() || tick1.negative() || tick2 <= tick1 || tick2 > score()->endTick()) {
+        LOGW("addSpanner: invalid range %s to %s", qPrintable(tick1.toString()), qPrintable(tick2.toString()));
+        return false;
+    }
+
+    if (anchor == mu::engraving::Spanner::Anchor::MEASURE) {
+        // extend to whole measures, as when adding a volta in the UI
+        tick1 = score()->tick2measure(tick1)->tick();
+        mu::engraving::Measure* endMeasure = score()->tick2measure(tick2);
+        if (endMeasure && endMeasure->tick() != tick2) {
+            tick2 = endMeasure->endTick();
+        }
+    }
+
+    if (spanner->isOttava()) {
+        // same default placement as the ottava commands
+        mu::engraving::Ottava* ottava = toOttava(spanner);
+        if (ottava->ottavaType() == mu::engraving::OttavaType::OTTAVA_8VB
+            && ottava->propertyFlags(Pid::PLACEMENT) == mu::engraving::PropertyFlags::STYLED) {
+            ottava->setPlacement(mu::engraving::PlacementV::BELOW);
+            ottava->styleChanged();
+        }
+    }
+
+    const mu::engraving::track_idx_t track = static_cast<mu::engraving::track_idx_t>(staffIdx) * mu::engraving::VOICES;
+    spanner->setScore(score());
+    spanner->setTrack(track);
+    spanner->setTrack2(track);
+    spanner->setTick(tick1);
+    spanner->setTick2(tick2);
+
+    wrapped->setOwnership(Ownership::SCORE);
+    score()->undoAddElement(spanner);
+    return true;
 }
 
 void Score::setPartVisible(apiv1::Part* part, bool visible)
