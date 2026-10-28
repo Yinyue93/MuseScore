@@ -556,6 +556,20 @@ public:
     Q_INVOKABLE void replaceInstrument(apiv1::Part* part, const QString& instrumentId);
 
     /** APIDOC
+     * Sets the instrument of a mid-score instrument change.
+     * An instrument change element must already exist in the part at the given tick
+     * (add one with Cursor.add). Clefs, key signatures and transposition are
+     * updated the same way as when choosing an instrument in the UI.
+     * @method
+     * @param {Engraving.Part} part The Part containing the instrument change.
+     * @param {Engraving.Fraction} tick Position of the instrument change.
+     * @param {String} instrumentId ID of the new instrument, as listed in
+     * {@link https://github.com/musescore/MuseScore/blob/master/share/instruments/instruments.xml|instruments.xml}
+     * @since 5.0
+    */
+    Q_INVOKABLE void replaceInstrumentAtTick(apiv1::Part* part, apiv1::Fraction* tick, const QString& instrumentId);
+
+    /** APIDOC
      * Sets the visibility of a part.
      * @method
      * @param {Engraving.Part} part The Part object.

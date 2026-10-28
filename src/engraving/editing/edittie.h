@@ -40,6 +40,9 @@ class EditTie
 {
 public:
     static void cmdAddTie(Score* score, bool addToChord = false);
+    // Ties startNote to endNote, replacing any existing tie from startNote.
+    // If tie is given, it is used instead of creating a new one.
+    static Tie* addTie(Note* startNote, Note* endNote, Tie* tie = nullptr);
     static Tie* cmdToggleTie(Score* score);
     static void cmdToggleLaissezVib(Score* score);
     static std::vector<Note*> cmdTieNoteList(const Selection& selection, bool noteEntryMode);

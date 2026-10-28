@@ -76,10 +76,15 @@ std::vector<Note*> EditTie::cmdTieNoteList(const Selection& selection, bool note
     return selection.noteList();
 }
 
-static Tie* createAndAddTie(Note* startNote, Note* endNote)
+static Tie* createAndAddTie(Note* startNote, Note* endNote, Tie* tie = nullptr)
 {
     Score* score = startNote->score();
-    Tie* tie = endNote ? Factory::createTie(startNote) : Factory::createPartialTie(startNote);
+    if (tie) {
+        tie->setScore(score);
+        tie->setOwnershipParent(startNote);
+    } else {
+        tie = endNote ? Factory::createTie(startNote) : Factory::createPartialTie(startNote);
+    }
     tie->setStartNote(startNote);
     tie->setTrack(startNote->track());
     tie->setTick(startNote->chord()->segment()->tick());
@@ -99,6 +104,17 @@ static Tie* createAndAddTie(Note* startNote, Note* endNote)
     }
 
     return tie;
+}
+
+Tie* EditTie::addTie(Note* startNote, Note* endNote, Tie* tie)
+{
+    IF_ASSERT_FAILED(startNote && endNote) {
+        return nullptr;
+    }
+    if (startNote->tieFor()) {
+        startNote->score()->undoRemoveElement(startNote->tieFor());
+    }
+    return createAndAddTie(startNote, endNote, tie);
 }
 
 void EditTie::cmdAddTie(Score* score, bool addToChord)
