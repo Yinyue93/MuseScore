@@ -474,6 +474,47 @@ public:
     * @param {Number} n number of measures
     */
     Q_INVOKABLE void appendMeasures(int n) { score()->appendMeasures(n); }
+
+    /** APIDOC
+     * Inserts empty measures before a given measure or frame,
+     * the same way as the "Insert measures" command.
+     * Unlike that command, this does not depend on the selection.
+     * @method
+     * @param {Engraving.MeasureBase} before measure or frame to insert before,
+     * or null to append at the end of the score
+     * @param {Number} count number of measures to insert
+     * @returns {Engraving.Measure} the first inserted measure, or null if none was inserted
+     * @since 5.0
+    */
+    Q_INVOKABLE apiv1::Measure* insertMeasures(apiv1::MeasureBase* before, int count);
+
+    /** APIDOC
+     * Deletes a range of measures and their contents, closing the gap,
+     * the same way as the "Delete selected measures" command.
+     * Unlike that command, this does not depend on the selection.
+     * @method
+     * @param {Engraving.Measure} first first measure to delete
+     * @param {Engraving.Measure} last last measure to delete (may be the same as first)
+     * @returns {Boolean} whether the measures were deleted. Deletion is refused if it
+     * would break up a measure repeat group or a tuplet.
+     * @since 5.0
+    */
+    Q_INVOKABLE bool deleteMeasures(apiv1::Measure* first, apiv1::Measure* last);
+
+    /** APIDOC
+     * Adds a line such as an ottava, hairpin, pedal, trill, text line or volta to the score.
+     * Create the spanner with newElement() and set its properties first.
+     * Slurs, ties, glissandi and other lines attached to notes are not supported.
+     * Voltas are extended to whole measures.
+     * @method
+     * @param {Engraving.Spanner} spanner the spanner to add. It must not be part of a score yet.
+     * @param {Number} staffIdx staff to add the spanner to
+     * @param {Engraving.Fraction} startTick where the spanner starts
+     * @param {Engraving.Fraction} endTick where the spanner ends, such as the end of its last note
+     * @returns {Boolean} whether the spanner was added
+     * @since 5.0
+    */
+    Q_INVOKABLE bool addSpanner(apiv1::Spanner* spanner, int staffIdx, apiv1::Fraction* startTick, apiv1::Fraction* endTick);
     /** APIDOC
      * The measure at a given tick in the score.
      * @method
